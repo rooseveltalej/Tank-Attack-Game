@@ -8,7 +8,7 @@ type Board = [[Cell]]
 
 -- Tamaño del tablero
 boardSize :: (Int, Int)
-boardSize = (5, 5)
+boardSize = (6, 6)
 
 -- Inicializa el tablero
 initBoard :: IO Board
