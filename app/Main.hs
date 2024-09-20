@@ -8,18 +8,17 @@ type Board = [[Cell]]
 
 -- Tamaño del tablero
 boardSize :: (Int, Int)
-boardSize = (10, 10)
+boardSize = (5, 5)
 
 -- Inicializa el tablero
 initBoard :: IO Board
 initBoard = do
     let barriers = [(2, 2), (3, 4), (5, 5)] -- Posiciones fijas de barreras
     userTankPos <- return (5, 0) -- Posición fija del tanque del usuario
-    enemyTankPositions <- mapM (\_ -> randomPos boardSize) [1..3] -- 3 tanques enemigos
+    enemyTankPositions <- mapM (\_ -> randomPos boardSize) [1..3 :: Int] -- 3 tanques enemigos
     let board = [ [ if (x, y) `elem` barriers then Barrier else Empty | x <- [0..snd boardSize - 1] ] | y <- [0..fst boardSize - 1] ]
     let boardWithUserTank = placeCells board [(userTankPos, UserTank)]
     return $ placeCells boardWithUserTank (zip enemyTankPositions (repeat EnemyTank))
-
 
 -- Coloca celdas en el tablero
 placeCells :: Board -> [(Pos, Cell)] -> Board
@@ -40,7 +39,7 @@ randomPos (width, height) = do
 
 -- Algoritmo de búsqueda en profundidad (DFS) para encontrar el camino
 dfs :: Board -> Pos -> Pos -> [Pos]
-dfs board start goal = dfs' [start] [] where
+dfs _ start goal = dfs' [start] [] where
     dfs' [] _ = []
     dfs' (current:stack) visited
         | current == goal = [current]
@@ -60,5 +59,5 @@ main = do
     putStrLn "Initial board:"
     mapM_ print board
     let userPos = (5, 0)
-    let enemyPos = [(2, 2), (3, 4), (5, 5)] -- Posiciones de ejemplo para enemigos
+    let enemyPos = [(4, 0), (3, 1), (1, 3)] -- Posiciones de ejemplo para enemigos
     mapM_ (\pos -> print (pos, dfs board pos userPos)) enemyPos
