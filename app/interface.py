@@ -13,25 +13,55 @@ pygame.display.set_caption("Juego de Tanques")
 # Colores
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
-GREEN = (0, 255, 0)
-RED = (255, 0, 0)
-BLUE = (0, 0, 255)
 
 # Tamaño de los bloques (tanques, muros)
 BLOCK_SIZE = 40
 
+# Cargar imágenes
+player_image = pygame.image.load('images/tank_player.png')
+enemy_image = pygame.image.load('images/tank_enemy.png')
+wall_image = pygame.image.load('images/wall.png')
+
+# Escalar imágenes si es necesario
+player_image = pygame.transform.scale(player_image, (BLOCK_SIZE, BLOCK_SIZE))
+enemy_image = pygame.transform.scale(enemy_image, (BLOCK_SIZE, BLOCK_SIZE))
+wall_image = pygame.transform.scale(wall_image, (BLOCK_SIZE, BLOCK_SIZE))
+
 clock = pygame.time.Clock()
+
+# El juego soporta una matriz de 20x15 bloques
+MAP = [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1],
+    [1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1],
+    [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+    [1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1],
+    [1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1],
+    [1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1],
+    [1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+    [1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1],
+    [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+]
+
 
 # --- CLASES ---
 
 class Tank:
-    def __init__(self, x, y, color):
+    def __init__(self, x, y, image, speed=5):  # Agregar parámetro speed
         self.rect = pygame.Rect(x, y, BLOCK_SIZE, BLOCK_SIZE)
-        self.color = color
-        self.speed = 5  # Velocidad de movimiento
+        self.image = image  # Usamos la imagen en lugar del color
+        self.original_image = image  # Guardar la imagen original para rotarla después
+        self.speed = speed  # Atributo de velocidad
+        self.direction = 'UP'  # Dirección inicial
 
     def draw(self, screen):
-        pygame.draw.rect(screen, self.color, self.rect)
+        # Dibujar la imagen en lugar del rectángulo
+        screen.blit(self.image, self.rect)
 
     def move(self, x_change, y_change, walls):
         # Nueva posición
@@ -44,29 +74,40 @@ class Tank:
 
         self.rect = new_rect
 
+    def rotate_image(self):
+        """ Rota la imagen del tanque según la dirección """
+        if self.direction == 'UP':
+            self.image = pygame.transform.rotate(self.original_image, 0)  # Imagen original
+        elif self.direction == 'DOWN':
+            self.image = pygame.transform.rotate(self.original_image, 180)
+        elif self.direction == 'LEFT':
+            self.image = pygame.transform.rotate(self.original_image, 90)
+        elif self.direction == 'RIGHT':
+            self.image = pygame.transform.rotate(self.original_image, -90)
 
 class Wall:
     def __init__(self, x, y):
         self.rect = pygame.Rect(x, y, BLOCK_SIZE, BLOCK_SIZE)
 
     def draw(self, screen):
-        pygame.draw.rect(screen, BLUE, self.rect)
+        # Dibujar la imagen del muro
+        screen.blit(wall_image, self.rect)
 
 
 class EnemyTank(Tank):
     def update(self, player_pos, walls):
         # Movimiento básico hacia el jugador
         if self.rect.x < player_pos[0]:
-            x_change = self.speed
+            x_change = 5
         elif self.rect.x > player_pos[0]:
-            x_change = -self.speed
+            x_change = -5
         else:
             x_change = 0
 
         if self.rect.y < player_pos[1]:
-            y_change = self.speed
+            y_change = 5
         elif self.rect.y > player_pos[1]:
-            y_change = -self.speed
+            y_change = -5
         else:
             y_change = 0
 
@@ -97,6 +138,20 @@ class Bullet:
                 self.rect.y < 0 or self.rect.y > SCREEN_HEIGHT)
 
 
+# --- FUNCIONES ---
+def generate_walls(map_data):
+    """Generar muros según el mapa"""
+    walls = []
+    for row in range(len(map_data)):
+        for col in range(len(map_data[row])):
+            if map_data[row][col] == 1:
+                wall = Wall(col * BLOCK_SIZE, row * BLOCK_SIZE)
+                walls.append(wall)
+    return walls
+
+walls = generate_walls(MAP)
+
+
 # --- FUNCIONES AUXILIARES ---
 
 def handle_bullets(bullets, enemies):
@@ -118,9 +173,9 @@ def handle_bullets(bullets, enemies):
 
 # --- CONFIGURACIÓN INICIAL ---
 
-player = Tank(100, 100, GREEN)  # Tanque del jugador
-walls = [Wall(200, 200), Wall(240, 200)]  # Lista de muros
-enemies = [EnemyTank(400, 400, RED), EnemyTank(600, 400, RED)]  # Tanques enemigos
+player = Tank(100, 40, player_image)  # Tanque del jugador
+#walls = [Wall(200, 200), Wall(240, 200)]  # Lista de muros
+enemies = [EnemyTank(400, 400, enemy_image), EnemyTank(600, 400, enemy_image)]  # Tanques enemigos
 bullets = []  # Lista de balas
 
 # --- BUCLE PRINCIPAL ---
@@ -148,16 +203,22 @@ while running:
     # Manejo del movimiento del tanque del jugador
     keys = pygame.key.get_pressed()
     x_change, y_change = 0, 0
+
     if keys[pygame.K_LEFT]:
         x_change = -player.speed
+        player.direction = 'LEFT'  # Actualizar dirección
     if keys[pygame.K_RIGHT]:
         x_change = player.speed
+        player.direction = 'RIGHT'  # Actualizar dirección
     if keys[pygame.K_UP]:
         y_change = -player.speed
+        player.direction = 'UP'  # Actualizar dirección
     if keys[pygame.K_DOWN]:
         y_change = player.speed
+        player.direction = 'DOWN'  # Actualizar dirección
 
     player.move(x_change, y_change, walls)
+    player.rotate_image()  # Rotar la imagen según la dirección
 
     # Actualizar y mover los enemigos hacia el jugador
     for enemy in enemies:
@@ -170,14 +231,15 @@ while running:
     screen.fill(BLACK)
     player.draw(screen)
     
-    for wall in walls:
-        wall.draw(screen)
 
     for enemy in enemies:
         enemy.draw(screen)
 
     for bullet in bullets:
         bullet.draw(screen)
+
+    for wall in walls:
+        wall.draw(screen)
 
     pygame.display.flip()
     clock.tick(30)  # 30 FPS
