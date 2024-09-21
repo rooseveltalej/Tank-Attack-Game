@@ -95,7 +95,12 @@ class Wall:
 
 
 class EnemyTank(Tank):
-    def update(self, player_pos, walls):
+    def __init__(self, x, y, image, speed=5):
+        super().__init__(x, y, image, speed)
+        self.last_shot_time = pygame.time.get_ticks()  # Tiempo del último disparo
+        self.shoot_interval = 2000  # Intervalo de disparo en milisegundos
+
+    def update(self, player_pos, walls, bullets):
         # Movimiento básico hacia el jugador
         if self.rect.x < player_pos[0]:
             x_change = 5
@@ -113,12 +118,40 @@ class EnemyTank(Tank):
 
         self.move(x_change, y_change, walls)
 
+        # Disparar hacia el jugador
+        current_time = pygame.time.get_ticks()
+        if current_time - self.last_shot_time > self.shoot_interval:
+            self.shoot(player_pos, bullets)
+            self.last_shot_time = current_time
+
+    def shoot(self, player_pos, bullets):
+        # Determinar la dirección del disparo
+        if player_pos[0] < self.rect.x:
+            direction = 'LEFT'
+            bullet_x = self.rect.left
+            bullet_y = self.rect.centery
+        elif player_pos[0] > self.rect.x:
+            direction = 'RIGHT'
+            bullet_x = self.rect.right
+            bullet_y = self.rect.centery
+        elif player_pos[1] < self.rect.y:
+            direction = 'UP'
+            bullet_x = self.rect.centerx
+            bullet_y = self.rect.top
+        else:
+            direction = 'DOWN'
+            bullet_x = self.rect.centerx
+            bullet_y = self.rect.bottom
+
+        bullet = Bullet(bullet_x, bullet_y, direction, is_enemy_bullet=True)
+        bullets.append(bullet)
 
 class Bullet:
-    def __init__(self, x, y, direction):
+    def __init__(self, x, y, direction, is_enemy_bullet=False):
         self.rect = pygame.Rect(x, y, 5, 5)
         self.speed = 10
         self.direction = direction  # ('UP', 'DOWN', 'LEFT', 'RIGHT')
+        self.is_enemy_bullet = is_enemy_bullet  # Indica si es una bala enemiga
 
     def move(self):
         if self.direction == 'UP':
@@ -154,28 +187,53 @@ walls = generate_walls(MAP)
 
 # --- FUNCIONES AUXILIARES ---
 
-def handle_bullets(bullets, enemies):
-    """ Mueve las balas y verifica colisiones con los enemigos """
-    for bullet in bullets[:]:  # Usamos [:] para copiar la lista mientras la iteramos
+def handle_bullets(bullets, enemies, walls, player):
+    for bullet in bullets[:]:
         bullet.move()
 
-        # Verificar si una bala golpea a un enemigo
-        for enemy in enemies[:]:  # También hacemos copia de enemigos para eliminar mientras iteramos
-            if bullet.rect.colliderect(enemy.rect):
-                enemies.remove(enemy)  # Eliminar enemigo
-                bullets.remove(bullet)  # Eliminar bala
+        # Verificar colisión con muros
+        for wall in walls:
+            if bullet.rect.colliderect(wall.rect):
+                if bullet in bullets:
+                    bullets.remove(bullet)
                 break
 
-        # Eliminar la bala si sale de la pantalla
-        if bullet.off_screen():
+        # Verificar colisión con el jugador
+        if bullet.rect.colliderect(player.rect):
+            # Restablecer la posición del jugador
+            player.rect.topleft = (100, 40)  # Posición inicial del jugador
+            if bullet in bullets:
+                bullets.remove(bullet)  # Eliminar la bala
+            break  # Salir del bucle para evitar múltiples eliminaciones
+
+        # Verificar colisión con enemigos
+        for enemy in enemies[:]:
+            if bullet.rect.colliderect(enemy.rect):
+                if bullet in bullets:
+                    bullets.remove(bullet)
+                break
+
+        if bullet.off_screen() and bullet in bullets:
             bullets.remove(bullet)
+
+
+
+def generate_random_position(walls):
+    while True:
+        x = random.randint(0, (SCREEN_WIDTH // BLOCK_SIZE) - 1) * BLOCK_SIZE
+        y = random.randint(0, (SCREEN_HEIGHT // BLOCK_SIZE) - 1) * BLOCK_SIZE
+        new_rect = pygame.Rect(x, y, BLOCK_SIZE, BLOCK_SIZE)
+        
+        # Verificar si la nueva posición colisiona con algún muro
+        if not any(new_rect.colliderect(wall.rect) for wall in walls):
+            return (x, y)
 
 
 # --- CONFIGURACIÓN INICIAL ---
 
 player = Tank(100, 40, player_image)  # Tanque del jugador
 #walls = [Wall(200, 200), Wall(240, 200)]  # Lista de muros
-enemies = [EnemyTank(400, 400, enemy_image), EnemyTank(600, 400, enemy_image)]  # Tanques enemigos
+enemies = [EnemyTank(*generate_random_position(walls), enemy_image) for _ in range(2)]
 bullets = []  # Lista de balas
 
 # --- BUCLE PRINCIPAL ---
@@ -200,48 +258,53 @@ while running:
                     bullet = Bullet(player.rect.right, player.rect.centery, 'RIGHT')
                 bullets.append(bullet)
 
-    # Manejo del movimiento del tanque del jugador
+        # Manejo del movimiento del tanque del jugador
     keys = pygame.key.get_pressed()
     x_change, y_change = 0, 0
 
-    if keys[pygame.K_LEFT]:
-        x_change = -player.speed
-        player.direction = 'LEFT'  # Actualizar dirección
-    if keys[pygame.K_RIGHT]:
-        x_change = player.speed
-        player.direction = 'RIGHT'  # Actualizar dirección
     if keys[pygame.K_UP]:
         y_change = -player.speed
-        player.direction = 'UP'  # Actualizar dirección
-    if keys[pygame.K_DOWN]:
+        player.direction = 'UP'
+    elif keys[pygame.K_DOWN]:
         y_change = player.speed
-        player.direction = 'DOWN'  # Actualizar dirección
+        player.direction = 'DOWN'
+    elif keys[pygame.K_LEFT]:
+        x_change = -player.speed
+        player.direction = 'LEFT'
+    elif keys[pygame.K_RIGHT]:
+        x_change = player.speed
+        player.direction = 'RIGHT'
 
     player.move(x_change, y_change, walls)
-    player.rotate_image()  # Rotar la imagen según la dirección
+    player.rotate_image()
 
-    # Actualizar y mover los enemigos hacia el jugador
+    # Actualizar y mover los tanques enemigos
     for enemy in enemies:
-        enemy.update(player.rect.topleft, walls)
+        enemy.update(player.rect.center, walls, bullets)
 
-    # Manejo de balas
-    handle_bullets(bullets, enemies)
+    # Manejo de las balas
+    handle_bullets(bullets, enemies, walls, player)
 
-    # Dibujar los elementos en la pantalla
-    screen.fill(BLACK)
-    player.draw(screen)
-    
+    # Dibujar todo
+    screen.fill(BLACK)  # Limpiar la pantalla
 
-    for enemy in enemies:
-        enemy.draw(screen)
-
-    for bullet in bullets:
-        bullet.draw(screen)
-
+    # Dibujar muros
     for wall in walls:
         wall.draw(screen)
 
+    # Dibujar al jugador y enemigos
+    player.draw(screen)
+    for enemy in enemies:
+        enemy.draw(screen)
+
+    # Dibujar las balas
+    for bullet in bullets:
+        bullet.draw(screen)
+
+    # Actualizar la pantalla
     pygame.display.flip()
-    clock.tick(30)  # 30 FPS
+
+    # Controlar el FPS
+    clock.tick(30)
 
 pygame.quit()
