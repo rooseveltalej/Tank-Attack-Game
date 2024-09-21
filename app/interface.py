@@ -103,15 +103,19 @@ class EnemyTank(Tank):
     def update(self, player_pos, walls, bullets):
         # Movimiento básico hacia el jugador
         if self.rect.x < player_pos[0]:
+            self.image = pygame.transform.rotate(self.original_image, -90)
             x_change = 5
         elif self.rect.x > player_pos[0]:
+            self.image = pygame.transform.rotate(self.original_image, 90)
             x_change = -5
         else:
             x_change = 0
 
         if self.rect.y < player_pos[1]:
+            self.image = pygame.transform.rotate(self.original_image, 180)
             y_change = 5
         elif self.rect.y > player_pos[1]:
+            
             y_change = -5
         else:
             y_change = 0
@@ -207,14 +211,16 @@ def handle_bullets(bullets, enemies, walls, player):
             break  # Salir del bucle para evitar múltiples eliminaciones
 
         # Verificar colisión con enemigos
-        for enemy in enemies[:]:
+        for enemy in enemies[:]:  # Hacemos una copia de la lista de enemigos para eliminar sin problemas
             if bullet.rect.colliderect(enemy.rect):
                 if bullet in bullets:
-                    bullets.remove(bullet)
+                    bullets.remove(bullet)  # Eliminar la bala
+                enemies.remove(enemy)  # Eliminar el enemigo
                 break
 
         if bullet.off_screen() and bullet in bullets:
             bullets.remove(bullet)
+
 
 
 
