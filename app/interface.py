@@ -286,7 +286,8 @@ def handle_bullets(bullets, enemies, walls, player, object_enemies):
 
         # Verificar colisión con enemigos
         for enemy in enemies[:]:  # Hacemos una copia de la lista de enemigos para eliminar sin problemas
-            if bullet.rect.colliderect(enemy.rect):
+            # Aquí verificamos que la bala no sea de un tanque enemigo
+            if bullet.rect.colliderect(enemy.rect) and not bullet.is_enemy_bullet:
                 if bullet in bullets:
                     bullets.remove(bullet)  # Eliminar la bala
                 enemies.remove(enemy)  # Eliminar el enemigo
@@ -302,6 +303,7 @@ def handle_bullets(bullets, enemies, walls, player, object_enemies):
 
         if bullet.off_screen() and bullet in bullets:
             bullets.remove(bullet)
+
 
 
 
