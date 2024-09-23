@@ -21,7 +21,7 @@ BLOCK_SIZE = 40
 player_image = pygame.image.load('images/tank_player.png')
 enemy_image = pygame.image.load('images/tank_enemy.png')
 wall_image = pygame.image.load('images/wall.png')
-# object_enemy = pygame.image.load('images/object_enemy.png') ##Estos son los objetos que vamos a elimninar, una vez se eliminan el juego termina
+object_enemy = pygame.image.load('images/object_enemy.png') ##Estos son los objetos que vamos a elimninar, una vez se eliminan el juego termina
 # Cargar imagen de fondo
 background_image = pygame.image.load('images/background.png')
 # Ajustar el tamaño del fondo a la pantalla
@@ -32,7 +32,7 @@ background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREE
 player_image = pygame.transform.scale(player_image, (BLOCK_SIZE, BLOCK_SIZE))
 enemy_image = pygame.transform.scale(enemy_image, (BLOCK_SIZE, BLOCK_SIZE))
 wall_image = pygame.transform.scale(wall_image, (BLOCK_SIZE, BLOCK_SIZE))
-object_enemy_image = wall_image = pygame.transform.scale(wall_image, (BLOCK_SIZE, BLOCK_SIZE))
+object_enemy_image = pygame.transform.scale(object_enemy, (BLOCK_SIZE, BLOCK_SIZE))
 
 clock = pygame.time.Clock()
 
@@ -71,15 +71,29 @@ class Tank:
         screen.blit(self.image, self.rect)
 
     def move(self, x_change, y_change, walls):
-        # Nueva posición
+        # Nueva posición propuesta
         new_rect = self.rect.move(x_change, y_change)
+
+        # Comprobar los límites de la pantalla
+        if new_rect.left < 0:  # Límite izquierdo
+            new_rect.left = 0
+        elif new_rect.right > SCREEN_WIDTH:  # Límite derecho
+            new_rect.right = SCREEN_WIDTH
+        
+        if new_rect.top < 0:  # Límite superior
+            new_rect.top = 0
+        elif new_rect.bottom > SCREEN_HEIGHT:  # Límite inferior
+            new_rect.bottom = SCREEN_HEIGHT
 
         # Verificar colisión con muros
         for wall in walls:
             if new_rect.colliderect(wall.rect):
                 return  # No moverse si choca con un muro
 
+        # Actualizar la posición si no hay colisión
         self.rect = new_rect
+
+            
 
     def rotate_image(self):
         """ Rota la imagen del tanque según la dirección """
@@ -109,53 +123,89 @@ class EnemyTank(Tank):
 
     def update(self, player_pos, walls, bullets):
         # Movimiento básico hacia el jugador
+        x_change, y_change = 0, 0
+
+        # Movimiento en el eje X
         if self.rect.x < player_pos[0]:
-            self.image = pygame.transform.rotate(self.original_image, -90)
+            self.direction = 'RIGHT'
             x_change = 5
         elif self.rect.x > player_pos[0]:
-            self.image = pygame.transform.rotate(self.original_image, 90)
+            self.direction = 'LEFT'
             x_change = -5
-        else:
-            x_change = 0
 
+        # Movimiento en el eje Y
         if self.rect.y < player_pos[1]:
-            self.image = pygame.transform.rotate(self.original_image, 180)
+            self.direction = 'DOWN'
             y_change = 5
         elif self.rect.y > player_pos[1]:
-
+            self.direction = 'UP'
             y_change = -5
-        else:
-            y_change = 0
 
+        # Rotar la imagen en función de la dirección
+        self.rotate_image()
+
+        # Mover el tanque (incluyendo verificación de colisiones y límites)
         self.move(x_change, y_change, walls)
 
-        # Disparar hacia el jugador
+        # Disparar hacia el jugador si ha pasado suficiente tiempo
         current_time = pygame.time.get_ticks()
         if current_time - self.last_shot_time > self.shoot_interval:
-            self.shoot(player_pos, bullets)
+            self.shoot(bullets)
             self.last_shot_time = current_time
 
-    def shoot(self, player_pos, bullets):
-        # Determinar la dirección del disparo
-        if player_pos[0] < self.rect.x:
-            direction = 'LEFT'
+    def rotate_image(self):
+        """ Rota la imagen del tanque según la dirección """
+        if self.direction == 'UP':
+            self.image = pygame.transform.rotate(self.original_image, 0)  # Ninguna rotación
+        elif self.direction == 'DOWN':
+            self.image = pygame.transform.rotate(self.original_image, 180)  # Rotación 180 grados
+        elif self.direction == 'LEFT':
+            self.image = pygame.transform.rotate(self.original_image, 90)  # Rotación 90 grados
+        elif self.direction == 'RIGHT':
+            self.image = pygame.transform.rotate(self.original_image, -90)  # Rotación -90 grados
+
+    def shoot(self, bullets):
+        # Determinar la dirección del disparo basada en la dirección del tanque
+        if self.direction == 'LEFT':
             bullet_x = self.rect.left
             bullet_y = self.rect.centery
-        elif player_pos[0] > self.rect.x:
-            direction = 'RIGHT'
+        elif self.direction == 'RIGHT':
             bullet_x = self.rect.right
             bullet_y = self.rect.centery
-        elif player_pos[1] < self.rect.y:
-            direction = 'UP'
+        elif self.direction == 'UP':
             bullet_x = self.rect.centerx
             bullet_y = self.rect.top
-        else:
-            direction = 'DOWN'
+        elif self.direction == 'DOWN':
             bullet_x = self.rect.centerx
             bullet_y = self.rect.bottom
 
-        bullet = Bullet(bullet_x, bullet_y, direction, is_enemy_bullet=True)
+        # Crear una bala en la dirección correcta
+        bullet = Bullet(bullet_x, bullet_y, self.direction, is_enemy_bullet=True)
         bullets.append(bullet)
+
+    def move(self, x_change, y_change, walls):
+        # Nueva posición propuesta
+        new_rect = self.rect.move(x_change, y_change)
+
+        # Comprobar los límites de la pantalla
+        if new_rect.left < 0:  # Límite izquierdo
+            new_rect.left = 0
+        elif new_rect.right > SCREEN_WIDTH:  # Límite derecho
+            new_rect.right = SCREEN_WIDTH
+        
+        if new_rect.top < 0:  # Límite superior
+            new_rect.top = 0
+        elif new_rect.bottom > SCREEN_HEIGHT:  # Límite inferior
+            new_rect.bottom = SCREEN_HEIGHT
+
+        # Verificar colisión con muros
+        for wall in walls:
+            if new_rect.colliderect(wall.rect):
+                return  # No moverse si choca con un muro
+
+        # Actualizar la posición si no hay colisión
+        self.rect = new_rect
+
 
 class Bullet:
     def __init__(self, x, y, direction, is_enemy_bullet=False):
@@ -193,12 +243,29 @@ def generate_walls(map_data):
                 walls.append(wall)
     return walls
 
+class ObjectEnemy:
+    def __init__(self, x, y, image):
+        self.rect = pygame.Rect(x, y, BLOCK_SIZE, BLOCK_SIZE)
+        self.image = image
+
+    def draw(self, screen):
+        screen.blit(self.image, self.rect)
+
+    def check_collision(self, bullets):
+        # Verificar si ha sido alcanzado por una bala
+        for bullet in bullets:
+            if self.rect.colliderect(bullet.rect):
+                bullets.remove(bullet)  # Remover la bala
+                return True  # Indica que el objeto fue destruido
+        return False
+
+
 walls = generate_walls(MAP)
 
 
 # --- FUNCIONES AUXILIARES ---
 
-def handle_bullets(bullets, enemies, walls, player):
+def handle_bullets(bullets, enemies, walls, player, object_enemies):
     for bullet in bullets[:]:
         bullet.move()
 
@@ -225,8 +292,18 @@ def handle_bullets(bullets, enemies, walls, player):
                 enemies.remove(enemy)  # Eliminar el enemigo
                 break
 
+        # Verificar colisión con objetos enemigos
+        for obj_enemy in object_enemies[:]:  # Copia de la lista para eliminar sin problemas
+            if bullet.rect.colliderect(obj_enemy.rect):
+                if bullet in bullets:
+                    bullets.remove(bullet)  # Eliminar la bala
+                object_enemies.remove(obj_enemy)  # Eliminar el objeto enemigo
+                break
+
         if bullet.off_screen() and bullet in bullets:
             bullets.remove(bullet)
+
+
 
 
 
@@ -246,7 +323,9 @@ def generate_random_position(walls):
 
 player = Tank(100, 40, player_image)  # Tanque del jugador
 #walls = [Wall(200, 200), Wall(240, 200)]  # Lista de muros
-enemies = [EnemyTank(*generate_random_position(walls), enemy_image) for _ in range(2)]
+enemies = [EnemyTank(*generate_random_position(walls), enemy_image) for _ in range(10)]
+object_enemies = [ObjectEnemy(*generate_random_position(walls + enemies), object_enemy_image) for _ in range(5)]  # Crear 5 object_enemy
+
 bullets = []  # Lista de balas
 
 # --- BUCLE PRINCIPAL ---
@@ -271,7 +350,6 @@ while running:
                     bullet = Bullet(player.rect.right, player.rect.centery, 'RIGHT')
                 bullets.append(bullet)
 
-        # Manejo del movimiento del tanque del jugador
     keys = pygame.key.get_pressed()
     x_change, y_change = 0, 0
 
@@ -295,8 +373,8 @@ while running:
     for enemy in enemies:
         enemy.update(player.rect.center, walls, bullets)
 
-    # Manejo de las balas
-    handle_bullets(bullets, enemies, walls, player)
+    # Manejo de las balas y colisiones
+    handle_bullets(bullets, enemies, walls, player, object_enemies)
 
     # Dibujar todo
     screen.blit(background_image, (0, 0))
@@ -310,9 +388,18 @@ while running:
     for enemy in enemies:
         enemy.draw(screen)
 
+    # Dibujar los objetos enemigos
+    for obj_enemy in object_enemies:
+        obj_enemy.draw(screen)
+
     # Dibujar las balas
     for bullet in bullets:
         bullet.draw(screen)
+
+    # Verificar si se han eliminado todos los object_enemy
+    if len(object_enemies) == 0:
+        print("¡Has ganado!")
+        running = False  # Finalizar el juego si todos los objetos enemigos han sido eliminados
 
     # Actualizar la pantalla
     pygame.display.flip()
