@@ -1,6 +1,6 @@
 import pygame
 import random
-
+    
 # Inicialización de Pygame
 pygame.init()
 
@@ -21,18 +21,25 @@ BLOCK_SIZE = 40
 player_image = pygame.image.load('images/tank_player.png')
 enemy_image = pygame.image.load('images/tank_enemy.png')
 wall_image = pygame.image.load('images/wall.png')
+# object_enemy = pygame.image.load('images/object_enemy.png') ##Estos son los objetos que vamos a elimninar, una vez se eliminan el juego termina
+# Cargar imagen de fondo
+background_image = pygame.image.load('images/background.png')
+# Ajustar el tamaño del fondo a la pantalla
+background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+
 
 # Escalar imágenes si es necesario
 player_image = pygame.transform.scale(player_image, (BLOCK_SIZE, BLOCK_SIZE))
 enemy_image = pygame.transform.scale(enemy_image, (BLOCK_SIZE, BLOCK_SIZE))
 wall_image = pygame.transform.scale(wall_image, (BLOCK_SIZE, BLOCK_SIZE))
+object_enemy_image = wall_image = pygame.transform.scale(wall_image, (BLOCK_SIZE, BLOCK_SIZE))
 
 clock = pygame.time.Clock()
 
 # El juego soporta una matriz de 20x15 bloques
 MAP = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1],
     [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
     [1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1],
     [1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1],
@@ -115,7 +122,7 @@ class EnemyTank(Tank):
             self.image = pygame.transform.rotate(self.original_image, 180)
             y_change = 5
         elif self.rect.y > player_pos[1]:
-            
+
             y_change = -5
         else:
             y_change = 0
@@ -168,10 +175,10 @@ class Bullet:
             self.rect.x += self.speed
 
     def draw(self, screen):
-        pygame.draw.rect(screen, WHITE, self.rect)
+        pygame.draw.rect(screen, BLACK, self.rect)
 
     def off_screen(self):
-        return (self.rect.x < 0 or self.rect.x > SCREEN_WIDTH or 
+        return (self.rect.x < 0 or self.rect.x > SCREEN_WIDTH or
                 self.rect.y < 0 or self.rect.y > SCREEN_HEIGHT)
 
 
@@ -229,7 +236,7 @@ def generate_random_position(walls):
         x = random.randint(0, (SCREEN_WIDTH // BLOCK_SIZE) - 1) * BLOCK_SIZE
         y = random.randint(0, (SCREEN_HEIGHT // BLOCK_SIZE) - 1) * BLOCK_SIZE
         new_rect = pygame.Rect(x, y, BLOCK_SIZE, BLOCK_SIZE)
-        
+
         # Verificar si la nueva posición colisiona con algún muro
         if not any(new_rect.colliderect(wall.rect) for wall in walls):
             return (x, y)
@@ -292,7 +299,7 @@ while running:
     handle_bullets(bullets, enemies, walls, player)
 
     # Dibujar todo
-    screen.fill(BLACK)  # Limpiar la pantalla
+    screen.blit(background_image, (0, 0))
 
     # Dibujar muros
     for wall in walls:
