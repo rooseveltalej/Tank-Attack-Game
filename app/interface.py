@@ -59,12 +59,13 @@ MAP = [
 # --- CLASES ---
 
 class Tank:
-    def __init__(self, x, y, image, speed=5):  # Agregar parámetro speed
+    def __init__(self, x, y, image, speed=5, lives=3):  # Agregar parámetro lives
         self.rect = pygame.Rect(x, y, BLOCK_SIZE, BLOCK_SIZE)
-        self.image = image  # Usamos la imagen en lugar del color
-        self.original_image = image  # Guardar la imagen original para rotarla después
-        self.speed = speed  # Atributo de velocidad
-        self.direction = 'UP'  # Dirección inicial
+        self.image = image
+        self.original_image = image
+        self.speed = speed
+        self.direction = 'UP'
+        self.lives = lives  # Atributo de vidas
 
     def draw(self, screen):
         # Dibujar la imagen en lugar del rectángulo
@@ -278,11 +279,16 @@ def handle_bullets(bullets, enemies, walls, player, object_enemies):
 
         # Verificar colisión con el jugador
         if bullet.rect.colliderect(player.rect):
-            # Restablecer la posición del jugador
+            if bullet.is_enemy_bullet:  # Solo reducir vidas si es una bala enemiga
+                player.lives -= 1
+                if player.lives <= 0:
+                    print("¡Has perdido!")
+                    pygame.quit()
+                    return
             player.rect.topleft = (100, 40)  # Posición inicial del jugador
             if bullet in bullets:
-                bullets.remove(bullet)  # Eliminar la bala
-            break  # Salir del bucle para evitar múltiples eliminaciones
+                bullets.remove(bullet)
+            break
 
         # Verificar colisión con enemigos
         for enemy in enemies[:]:  # Hacemos una copia de la lista de enemigos para eliminar sin problemas
@@ -305,7 +311,12 @@ def handle_bullets(bullets, enemies, walls, player, object_enemies):
             bullets.remove(bullet)
 
 
-
+def draw_lives(screen, lives, x=10, y=10):
+    font = pygame.font.Font(None, 36)
+    text = font.render(f'Vidas: {lives}', True, WHITE)
+    screen.blit(text, (x, y))
+    
+    
 
 
 
@@ -397,6 +408,9 @@ while running:
     # Dibujar las balas
     for bullet in bullets:
         bullet.draw(screen)
+
+    # Dibujar las vidas del jugador
+    draw_lives(screen, player.lives)
 
     # Verificar si se han eliminado todos los object_enemy
     if len(object_enemies) == 0:
