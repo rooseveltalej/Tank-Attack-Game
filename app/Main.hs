@@ -1,63 +1,41 @@
-import System.Random (randomRIO)
-import Data.List (find)
+module Main (main) where
 
--- Definición de tipos
-type Pos = (Int, Int)
-data Cell = Empty | UserTank | EnemyTank | Barrier deriving (Eq, Show)
-type Board = [[Cell]]
+import System.IO (readFile, writeFile)
+import Data.List (delete)
 
--- Tamaño del tablero
-boardSize :: (Int, Int)
-boardSize = (6, 6)
+type Position = (Int, Int)
+type Path = [Position]
 
--- Inicializa el tablero
-initBoard :: IO Board
-initBoard = do
-    let barriers = [(2, 2), (3, 4), (5, 5)] -- Posiciones fijas de barreras
-    userTankPos <- return (5, 0) -- Posición fija del tanque del usuario
-    enemyTankPositions <- mapM (\_ -> randomPos boardSize) [1..3 :: Int] -- 3 tanques enemigos
-    let board = [ [ if (x, y) `elem` barriers then Barrier else Empty | x <- [0..snd boardSize - 1] ] | y <- [0..fst boardSize - 1] ]
-    let boardWithUserTank = placeCells board [(userTankPos, UserTank)]
-    return $ placeCells boardWithUserTank (zip enemyTankPositions (repeat EnemyTank))
+-- DFS para encontrar la ruta desde el enemigo hasta el jugador
+dfs :: Position -> Position -> [Position] -> Path -> Path
+dfs start goal walls visited
+    | start == goal = [start]
+    | otherwise = start : concat [dfs next goal walls (next:visited) | next <- neighbors start, next `notElem` visited, next `notElem` walls]
 
--- Coloca celdas en el tablero
-placeCells :: Board -> [(Pos, Cell)] -> Board
-placeCells board [] = board
-placeCells board ((pos, cell):xs) = placeCells (replaceCell board pos cell) xs
+-- Vecinos posibles (arriba, abajo, izquierda, derecha)
+neighbors :: Position -> [Position]
+neighbors (x, y) = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
 
--- Reemplaza una celda en el tablero
-replaceCell :: Board -> Pos -> Cell -> Board
-replaceCell board (x, y) cell = 
-    take y board ++ [take x (board !! y) ++ [cell] ++ drop (x + 1) (board !! y)] ++ drop (y + 1) board
+-- Leer la posición del jugador y los muros desde un archivo
+readInput :: IO (Maybe (Position, Position, [Position]))
+readInput = do
+    contents <- readFile "C:\\Users\\Usuario\\Desktop\\Juego\\app\\input.txt"
+    let positions = map read (words contents)
+    case positions of
+        [ex, ey, px, py] -> do
+            let walls = [(1,1), (1,2), (2,2)] -- Ejemplo de muros
+            return $ Just ((ex, ey), (px, py), walls)
+        _ -> return Nothing
 
--- Obtiene una posición aleatoria en el tablero
-randomPos :: (Int, Int) -> IO Pos
-randomPos (width, height) = do
-    x <- randomRIO (0, width - 1)
-    y <- randomRIO (0, height - 1)
-    return (x, y)
+-- Escribir la ruta calculada en un archivo
+writeOutput :: Path -> IO ()
+writeOutput path = writeFile "C:\\Users\\Usuario\\Desktop\\Juego\\app\\output.txt" (unwords (map show path))
 
--- Algoritmo de búsqueda en profundidad (DFS) para encontrar el camino
-dfs :: Board -> Pos -> Pos -> [Pos]
-dfs _ start goal = dfs' [start] [] where
-    dfs' [] _ = []
-    dfs' (current:stack) visited
-        | current == goal = [current]
-        | otherwise = 
-            let neighbors = filter (`notElem` visited) (getNeighbors current)
-                newStack = neighbors ++ stack
-                newVisited = current : visited
-            in case find (\p -> p == goal) neighbors of
-                Just p -> current : dfs' [p] newVisited
-                Nothing -> dfs' newStack newVisited
-    getNeighbors (x, y) = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)] -- Movimientos posibles
-
--- Main
 main :: IO ()
 main = do
-    board <- initBoard
-    putStrLn "Initial board:"
-    mapM_ print board
-    let userPos = (5, 0)
-    let enemyPos = [(4, 0), (3, 1), (1, 3)] -- Posiciones de ejemplo para enemigos
-    mapM_ (\pos -> print (pos, dfs board pos userPos)) enemyPos
+    input <- readInput
+    case input of
+        Just (enemyPos, playerPos, walls) -> do
+            let path = dfs enemyPos playerPos walls []
+            writeOutput path
+        Nothing -> putStrLn "Error: Input file format is incorrect."

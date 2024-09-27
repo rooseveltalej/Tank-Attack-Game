@@ -1,5 +1,6 @@
 import pygame
 import random
+import subprocess
     
 # Inicialización de Pygame
 pygame.init()
@@ -119,40 +120,32 @@ class Wall:
 class EnemyTank(Tank):
     def __init__(self, x, y, image, speed=5):
         super().__init__(x, y, image, speed)
-        self.last_shot_time = pygame.time.get_ticks()  # Tiempo del último disparo
-        self.shoot_interval = 2000  # Intervalo de disparo en milisegundos
+        self.path = []
+        self.steps = 0
 
     def update(self, player_pos, walls, bullets):
-        # Movimiento básico hacia el jugador
-        x_change, y_change = 0, 0
+        if self.steps == 0 or self.steps >= 5:
+            self.calculate_path(player_pos, walls)
+            self.steps = 0
 
-        # Movimiento en el eje X
-        if self.rect.x < player_pos[0]:
-            self.direction = 'RIGHT'
-            x_change = 5
-        elif self.rect.x > player_pos[0]:
-            self.direction = 'LEFT'
-            x_change = -5
+        if self.path:
+            next_move = self.path.pop(0)
+            self.rect.topleft = next_move
+            self.steps += 1
 
-        # Movimiento en el eje Y
-        if self.rect.y < player_pos[1]:
-            self.direction = 'DOWN'
-            y_change = 5
-        elif self.rect.y > player_pos[1]:
-            self.direction = 'UP'
-            y_change = -5
-
-        # Rotar la imagen en función de la dirección
         self.rotate_image()
+        self.shoot_if_needed(bullets)
+        
+        
+    def calculate_path(self, player_pos, walls):
+        with open('C:\\Users\\Usuario\\Desktop\\Juego\\app\\input.txt', 'w') as f:
+            f.write(f"{self.rect.x} {self.rect.y} {player_pos[0]} {player_pos[1]}\n")
+        
+        subprocess.run(['runhaskell', 'C:\\Users\\Usuario\\Desktop\\Juego\\app\\Main.hs'])
 
-        # Mover el tanque (incluyendo verificación de colisiones y límites)
-        self.move(x_change, y_change, walls)
-
-        # Disparar hacia el jugador si ha pasado suficiente tiempo
-        current_time = pygame.time.get_ticks()
-        if current_time - self.last_shot_time > self.shoot_interval:
-            self.shoot(bullets)
-            self.last_shot_time = current_time
+        with open('C:\\Users\\Usuario\\Desktop\\Juego\\app\\output.txt', 'r') as f:
+            path = f.read().strip().split()
+            self.path = [(int(path[i]), int(path[i+1])) for i in range(0, len(path), 2)]
 
     def rotate_image(self):
         """ Rota la imagen del tanque según la dirección """
@@ -164,6 +157,12 @@ class EnemyTank(Tank):
             self.image = pygame.transform.rotate(self.original_image, 90)  # Rotación 90 grados
         elif self.direction == 'RIGHT':
             self.image = pygame.transform.rotate(self.original_image, -90)  # Rotación -90 grados
+    
+    def shoot_if_needed(self, bullets):
+        current_time = pygame.time.get_ticks()
+        if current_time - self.last_shot_time > self.shoot_interval:
+            self.shoot(bullets)
+            self.last_shot_time = current_time
 
     def shoot(self, bullets):
         # Determinar la dirección del disparo basada en la dirección del tanque
@@ -382,14 +381,7 @@ while running:
     player.move(x_change, y_change, walls)
     player.rotate_image()
 
-    # Actualizar y mover los tanques enemigos
-    for enemy in enemies:
-        enemy.update(player.rect.center, walls, bullets)
-
-    # Manejo de las balas y colisiones
-    handle_bullets(bullets, enemies, walls, player, object_enemies)
-
-    # Dibujar todo
+    # Dibujar todo primero
     screen.blit(background_image, (0, 0))
 
     # Dibujar muros
@@ -412,13 +404,20 @@ while running:
     # Dibujar las vidas del jugador
     draw_lives(screen, player.lives)
 
+    # Actualizar la pantalla
+    pygame.display.flip()
+
+    # Realizar el cálculo de la ruta con Haskell después de actualizar la pantalla
+    for enemy in enemies:
+        enemy.update(player.rect.center, walls, bullets)
+
+    # Manejo de las balas y colisiones
+    handle_bullets(bullets, enemies, walls, player, object_enemies)
+
     # Verificar si se han eliminado todos los object_enemy
     if len(object_enemies) == 0:
         print("¡Has ganado!")
         running = False  # Finalizar el juego si todos los objetos enemigos han sido eliminados
-
-    # Actualizar la pantalla
-    pygame.display.flip()
 
     # Controlar el FPS
     clock.tick(30)
