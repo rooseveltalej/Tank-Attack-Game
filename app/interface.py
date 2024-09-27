@@ -121,43 +121,75 @@ class EnemyTank(Tank):
     def __init__(self, x, y, image, speed=5):
         super().__init__(x, y, image, speed)
         self.path = []
-        self.steps = 0
+        self.target_pos = None
+        self.last_shot_time = 0
+        self.shoot_interval = 2000
 
     def update(self, player_pos, walls, bullets):
-        if self.steps == 0 or self.steps >= 5:
+        if not self.path:
             self.calculate_path(player_pos, walls)
-            self.steps = 0
 
         if self.path:
-            next_move = self.path.pop(0)
-            self.rect.topleft = next_move
-            self.steps += 1
+            if self.target_pos is None or self.rect.topleft == self.target_pos:
+                self.target_pos = self.path.pop(0)
+
+            self.move_towards_target()
 
         self.rotate_image()
         self.shoot_if_needed(bullets)
-        
-        
-    def calculate_path(self, player_pos, walls):
-        with open('C:\\Users\\Usuario\\Desktop\\Juego\\app\\input.txt', 'w') as f:
-            f.write(f"{self.rect.x} {self.rect.y} {player_pos[0]} {player_pos[1]}\n")
-        
-        subprocess.run(['runhaskell', 'C:\\Users\\Usuario\\Desktop\\Juego\\app\\Main.hs'])
 
-        with open('C:\\Users\\Usuario\\Desktop\\Juego\\app\\output.txt', 'r') as f:
-            path = f.read().strip().split()
-            self.path = [(int(path[i]), int(path[i+1])) for i in range(0, len(path), 2)]
+    def move_towards_target(self):
+        if self.target_pos:
+            target_x, target_y = self.target_pos
+            current_x, current_y = self.rect.topleft
+
+            if current_x < target_x:
+                self.rect.x += self.speed
+                self.direction = 'RIGHT'
+            elif current_x > target_x:
+                self.rect.x -= self.speed
+                self.direction = 'LEFT'
+
+            if current_y < target_y:
+                self.rect.y += self.speed
+                self.direction = 'DOWN'
+            elif current_y > target_y:
+                self.rect.y -= self.speed
+                self.direction = 'UP'
+
+    def calculate_path(self, player_pos, walls):
+        with open('./app/input.txt', 'w') as f:
+            f.write(f"{self.rect.x // BLOCK_SIZE} {self.rect.y // BLOCK_SIZE} {player_pos[0] // BLOCK_SIZE} {player_pos[1] // BLOCK_SIZE}\n")
+            for wall in walls:
+                f.write(f"{wall.rect.x // BLOCK_SIZE} {wall.rect.y // BLOCK_SIZE} ")
+
+        with open('./app/input.txt', 'r') as f:
+            print("Contenido del archivo de entrada:", f.read())
+
+        result = subprocess.run(['runhaskell', './app/Main.hs'], capture_output=True, text=True)
+        print("Resultado de Haskell:", result.stdout)
+        if result.returncode != 0:
+            print("Error en la ejecución de Haskell:", result.stderr)
+
+        try:
+            with open('./app/output.txt', 'r') as f:
+                path = f.read().strip().split()
+                print("Ruta obtenida de Haskell:", path)
+                self.path = [tuple(map(int, pos.strip('()').split(','))) for pos in path]
+                self.path = [(x * BLOCK_SIZE, y * BLOCK_SIZE) for x, y in self.path]
+        except FileNotFoundError:
+            print("Archivo de salida no encontrado.")
 
     def rotate_image(self):
-        """ Rota la imagen del tanque según la dirección """
         if self.direction == 'UP':
-            self.image = pygame.transform.rotate(self.original_image, 0)  # Ninguna rotación
+            self.image = pygame.transform.rotate(self.original_image, 0)
         elif self.direction == 'DOWN':
-            self.image = pygame.transform.rotate(self.original_image, 180)  # Rotación 180 grados
+            self.image = pygame.transform.rotate(self.original_image, 180)
         elif self.direction == 'LEFT':
-            self.image = pygame.transform.rotate(self.original_image, 90)  # Rotación 90 grados
+            self.image = pygame.transform.rotate(self.original_image, 90)
         elif self.direction == 'RIGHT':
-            self.image = pygame.transform.rotate(self.original_image, -90)  # Rotación -90 grados
-    
+            self.image = pygame.transform.rotate(self.original_image, -90)
+
     def shoot_if_needed(self, bullets):
         current_time = pygame.time.get_ticks()
         if current_time - self.last_shot_time > self.shoot_interval:
@@ -165,7 +197,6 @@ class EnemyTank(Tank):
             self.last_shot_time = current_time
 
     def shoot(self, bullets):
-        # Determinar la dirección del disparo basada en la dirección del tanque
         if self.direction == 'LEFT':
             bullet_x = self.rect.left
             bullet_y = self.rect.centery
@@ -179,31 +210,22 @@ class EnemyTank(Tank):
             bullet_x = self.rect.centerx
             bullet_y = self.rect.bottom
 
-        # Crear una bala en la dirección correcta
         bullet = Bullet(bullet_x, bullet_y, self.direction, is_enemy_bullet=True)
         bullets.append(bullet)
 
     def move(self, x_change, y_change, walls):
-        # Nueva posición propuesta
         new_rect = self.rect.move(x_change, y_change)
-
-        # Comprobar los límites de la pantalla
-        if new_rect.left < 0:  # Límite izquierdo
+        if new_rect.left < 0:
             new_rect.left = 0
-        elif new_rect.right > SCREEN_WIDTH:  # Límite derecho
+        elif new_rect.right > SCREEN_WIDTH:
             new_rect.right = SCREEN_WIDTH
-        
-        if new_rect.top < 0:  # Límite superior
+        if new_rect.top < 0:
             new_rect.top = 0
-        elif new_rect.bottom > SCREEN_HEIGHT:  # Límite inferior
+        elif new_rect.bottom > SCREEN_HEIGHT:
             new_rect.bottom = SCREEN_HEIGHT
-
-        # Verificar colisión con muros
         for wall in walls:
             if new_rect.colliderect(wall.rect):
-                return  # No moverse si choca con un muro
-
-        # Actualizar la posición si no hay colisión
+                return
         self.rect = new_rect
 
 
@@ -315,10 +337,6 @@ def draw_lives(screen, lives, x=10, y=10):
     text = font.render(f'Vidas: {lives}', True, WHITE)
     screen.blit(text, (x, y))
     
-    
-
-
-
 
 def generate_random_position(walls):
     while True:
@@ -335,7 +353,7 @@ def generate_random_position(walls):
 
 player = Tank(100, 40, player_image)  # Tanque del jugador
 #walls = [Wall(200, 200), Wall(240, 200)]  # Lista de muros
-enemies = [EnemyTank(*generate_random_position(walls), enemy_image) for _ in range(10)]
+enemies = [EnemyTank(*generate_random_position(walls), enemy_image) for _ in range(3)]
 object_enemies = [ObjectEnemy(*generate_random_position(walls + enemies), object_enemy_image) for _ in range(5)]  # Crear 5 object_enemy
 
 bullets = []  # Lista de balas
@@ -344,6 +362,7 @@ bullets = []  # Lista de balas
 
 running = True
 while running:
+    keys = pygame.key.get_pressed()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -362,7 +381,7 @@ while running:
                     bullet = Bullet(player.rect.right, player.rect.centery, 'RIGHT')
                 bullets.append(bullet)
 
-    keys = pygame.key.get_pressed()
+    
     x_change, y_change = 0, 0
 
     if keys[pygame.K_UP]:
