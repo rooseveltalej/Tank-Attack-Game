@@ -1,6 +1,7 @@
 import pygame
 import random
 import subprocess
+import threading
     
 # Inicialización de Pygame
 pygame.init()
@@ -127,7 +128,7 @@ class EnemyTank(Tank):
 
     def update(self, player_pos, walls, bullets):
         if not self.path:
-            self.calculate_path(player_pos, walls)
+            threading.Thread(self.calculate_path(player_pos, walls))
 
         if self.path:
             if self.target_pos is None or self.rect.topleft == self.target_pos:
@@ -353,7 +354,7 @@ def generate_random_position(walls):
 
 player = Tank(100, 40, player_image)  # Tanque del jugador
 #walls = [Wall(200, 200), Wall(240, 200)]  # Lista de muros
-enemies = [EnemyTank(*generate_random_position(walls), enemy_image) for _ in range(3)]
+enemies = [EnemyTank(*generate_random_position(walls), enemy_image) for _ in range(10)]
 object_enemies = [ObjectEnemy(*generate_random_position(walls + enemies), object_enemy_image) for _ in range(5)]  # Crear 5 object_enemy
 
 bullets = []  # Lista de balas
@@ -440,5 +441,8 @@ while running:
 
     # Controlar el FPS
     clock.tick(30)
+
+    if player.lives == 0: 
+        running = False
 
 pygame.quit()
