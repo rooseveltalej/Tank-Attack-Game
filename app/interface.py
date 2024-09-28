@@ -278,9 +278,11 @@ class ObjectEnemy:
         # Verificar si ha sido alcanzado por una bala
         for bullet in bullets:
             if self.rect.colliderect(bullet.rect):
-                bullets.remove(bullet)  # Remover la bala
-                return True  # Indica que el objeto fue destruido
+                if not bullet.is_enemy_bullet:  # Solo eliminar si la bala no es enemiga
+                    bullets.remove(bullet)  # Remover la bala
+                    return True  # Indica que el objeto fue destruido
         return False
+
 
 
 walls = generate_walls(MAP)
@@ -314,7 +316,6 @@ def handle_bullets(bullets, enemies, walls, player, object_enemies):
 
         # Verificar colisión con enemigos
         for enemy in enemies[:]:  # Hacemos una copia de la lista de enemigos para eliminar sin problemas
-            # Aquí verificamos que la bala no sea de un tanque enemigo
             if bullet.rect.colliderect(enemy.rect) and not bullet.is_enemy_bullet:
                 if bullet in bullets:
                     bullets.remove(bullet)  # Eliminar la bala
@@ -324,10 +325,11 @@ def handle_bullets(bullets, enemies, walls, player, object_enemies):
         # Verificar colisión con objetos enemigos
         for obj_enemy in object_enemies[:]:  # Copia de la lista para eliminar sin problemas
             if bullet.rect.colliderect(obj_enemy.rect):
-                if bullet in bullets:
-                    bullets.remove(bullet)  # Eliminar la bala
-                object_enemies.remove(obj_enemy)  # Eliminar el objeto enemigo
-                break
+                if not bullet.is_enemy_bullet:  # Solo eliminar si la bala no es enemiga
+                    if bullet in bullets:
+                        bullets.remove(bullet)  # Eliminar la bala
+                    object_enemies.remove(obj_enemy)  # Eliminar el objeto enemigo
+                    break
 
         if bullet.off_screen() and bullet in bullets:
             bullets.remove(bullet)
@@ -362,6 +364,8 @@ bullets = []  # Lista de balas
 # --- BUCLE PRINCIPAL ---
 
 running = True
+
+
 while running:
     keys = pygame.key.get_pressed()
     for event in pygame.event.get():
