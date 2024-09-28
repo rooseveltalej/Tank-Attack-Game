@@ -128,7 +128,7 @@ class EnemyTank(Tank):
 
     def update(self, player_pos, walls, bullets):
         if not self.path:
-            threading.Thread(self.calculate_path(player_pos, walls))
+            threading.Thread(self.calculate_path(player_pos, walls)).start()
 
         if self.path:
             if self.target_pos is None or self.rect.topleft == self.target_pos:
@@ -356,16 +356,13 @@ def generate_random_position(walls):
 
 player = Tank(100, 40, player_image)  # Tanque del jugador
 #walls = [Wall(200, 200), Wall(240, 200)]  # Lista de muros
-enemies = [EnemyTank(*generate_random_position(walls), enemy_image) for _ in range(10)]
+enemies = [EnemyTank(*generate_random_position(walls), enemy_image) for _ in range(5)]
 object_enemies = [ObjectEnemy(*generate_random_position(walls + enemies), object_enemy_image) for _ in range(5)]  # Crear 5 object_enemy
 
 bullets = []  # Lista de balas
 
 # --- BUCLE PRINCIPAL ---
-
 running = True
-
-
 while running:
     keys = pygame.key.get_pressed()
     for event in pygame.event.get():
