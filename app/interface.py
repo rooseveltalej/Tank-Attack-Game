@@ -221,7 +221,7 @@ class EnemyTank(Tank):
     def shoot_if_needed(self, bullets, player_pos):
         current_time = pygame.time.get_ticks()
         distance = self.rect.centerx - player_pos[0]  # Calcular distancia en x
-        if current_time - self.last_shot_time > self.shoot_interval and abs(distance) < 200:  # Ajusta el valor 200 según la distancia deseada
+        if current_time - self.last_shot_time > self.shoot_interval and abs(distance) < 50:  # Ajusta el valor 200 según la distancia deseada
             self.shoot(bullets)
             self.last_shot_time = current_time
 
@@ -356,7 +356,7 @@ def handle_bullets(bullets, enemies, walls, player, object_enemies):
                 # Dibuja la explosión en la posición del enemigo
                 screen.blit(explosion_image, enemy.rect.topleft)
                 pygame.display.flip()  # Actualiza la pantalla para mostrar la explosión
-                pygame.time.delay(500)  # Espera medio segundo para mostrar la explosión
+                pygame.time.delay(10)  # Espera medio segundo para mostrar la explosión
                 enemies.remove(enemy)  # Eliminar el enemigo
                 break
 
