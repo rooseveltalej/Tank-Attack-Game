@@ -394,8 +394,8 @@ def generate_random_position(walls):
 
 player = Tank(100, 40, player_image)  # Tanque del jugador
 #walls = [Wall(200, 200), Wall(240, 200)]  # Lista de muros
-enemies = [EnemyTank(*generate_random_position(walls), enemy_image) for _ in range(5)]
-object_enemies = [ObjectEnemy(*generate_random_position(walls + enemies), object_enemy_image) for _ in range(5)]  # Crear 5 object_enemy
+enemies = [EnemyTank(*generate_random_position(walls), enemy_image) for _ in range(4)]
+object_enemies = [ObjectEnemy(*generate_random_position(walls + enemies), object_enemy_image) for _ in range(10)]  # Crear 5 object_enemy
 
 bullets = []  # Lista de balas
 
