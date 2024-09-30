@@ -1,15 +1,23 @@
 import pygame
 import random
 import subprocess
+import threading
     
 # Inicialización de Pygame
 pygame.init()
+pygame.mixer.init()
 
 # Configuración de pantalla
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Juego de Tanques")
+pygame.mixer.music.load('music/tu_cancion.mp3')
+pygame.mixer.music.set_volume(0.2)
+pygame.mixer.music.play(-1) 
+
+defeat_sound = pygame.mixer.Sound('music/derrota.mp3') 
+defeat_sound.set_volume(0.3)
 
 # Colores
 BLACK = (0, 0, 0)
@@ -20,10 +28,27 @@ BLOCK_SIZE = 40
 
 # Cargar imágenes
 player_image = pygame.image.load('images/tank_player.png')
+explosion_image = pygame.image.load('images/explosion.png')
 enemy_image = pygame.image.load('images/tank_enemy.png')
 wall_image = pygame.image.load('images/wall.png')
 object_enemy = pygame.image.load('images/object_enemy.png') ##Estos son los objetos que vamos a elimninar, una vez se eliminan el juego termina
+victory_image = pygame.image.load('images/victoria.png')
+original_width, original_height = victory_image.get_size()
+
+# Calcular nuevas dimensiones (50%)
+new_width = int(original_width * 0.5)
+new_height = int(original_height * 0.5)
+
+# Redimensionar la imagen
+victory_image = pygame.transform.scale(victory_image, (new_width, new_height))
 # Cargar imagen de fondo
+
+
+game_over_image = pygame.image.load('images/game_over.png') 
+# Reducir el tamaño de la imagen (por ejemplo, al 50%)
+new_width = int(game_over_image.get_width() * 0.5)  # 50% del ancho original
+new_height = int(game_over_image.get_height() * 0.5)  # 50% de la altura original
+game_over_image = pygame.transform.scale(game_over_image, (new_width, new_height))
 background_image = pygame.image.load('images/background.png')
 # Ajustar el tamaño del fondo a la pantalla
 background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -34,6 +59,7 @@ player_image = pygame.transform.scale(player_image, (BLOCK_SIZE, BLOCK_SIZE))
 enemy_image = pygame.transform.scale(enemy_image, (BLOCK_SIZE, BLOCK_SIZE))
 wall_image = pygame.transform.scale(wall_image, (BLOCK_SIZE, BLOCK_SIZE))
 object_enemy_image = pygame.transform.scale(object_enemy, (BLOCK_SIZE, BLOCK_SIZE))
+explosion_image = pygame.transform.scale(explosion_image, (BLOCK_SIZE, BLOCK_SIZE))  # Ajusta el tamaño si es necesario
 
 clock = pygame.time.Clock()
 
@@ -125,9 +151,10 @@ class EnemyTank(Tank):
         self.last_shot_time = 0
         self.shoot_interval = 2000
 
+
     def update(self, player_pos, walls, bullets):
         if not self.path:
-            self.calculate_path(player_pos, walls)
+            threading.Thread(self.calculate_path(player_pos, walls)).start()
 
         if self.path:
             if self.target_pos is None or self.rect.topleft == self.target_pos:
@@ -136,7 +163,8 @@ class EnemyTank(Tank):
             self.move_towards_target()
 
         self.rotate_image()
-        self.shoot_if_needed(bullets)
+        self.shoot_if_needed(bullets, player_pos)  # Asegúrate de pasar player_pos aquí
+
 
     def move_towards_target(self):
         if self.target_pos:
@@ -190,9 +218,10 @@ class EnemyTank(Tank):
         elif self.direction == 'RIGHT':
             self.image = pygame.transform.rotate(self.original_image, -90)
 
-    def shoot_if_needed(self, bullets):
+    def shoot_if_needed(self, bullets, player_pos):
         current_time = pygame.time.get_ticks()
-        if current_time - self.last_shot_time > self.shoot_interval:
+        distance = self.rect.centerx - player_pos[0]  # Calcular distancia en x
+        if current_time - self.last_shot_time > self.shoot_interval and abs(distance) < 50:  # Ajusta el valor 200 según la distancia deseada
             self.shoot(bullets)
             self.last_shot_time = current_time
 
@@ -277,9 +306,11 @@ class ObjectEnemy:
         # Verificar si ha sido alcanzado por una bala
         for bullet in bullets:
             if self.rect.colliderect(bullet.rect):
-                bullets.remove(bullet)  # Remover la bala
-                return True  # Indica que el objeto fue destruido
+                if not bullet.is_enemy_bullet:  # Solo eliminar si la bala no es enemiga
+                    bullets.remove(bullet)  # Remover la bala
+                    return True  # Indica que el objeto fue destruido
         return False
+
 
 
 walls = generate_walls(MAP)
@@ -303,7 +334,13 @@ def handle_bullets(bullets, enemies, walls, player, object_enemies):
             if bullet.is_enemy_bullet:  # Solo reducir vidas si es una bala enemiga
                 player.lives -= 1
                 if player.lives <= 0:
-                    print("¡Has perdido!")
+                    pygame.mixer.music.stop() 
+                    defeat_sound.play() 
+                    screen.blit(game_over_image, (SCREEN_WIDTH // 2 - game_over_image.get_width() // 2, SCREEN_HEIGHT // 2 - game_over_image.get_height() // 2))
+                    pygame.display.flip()  # Actualiza la pantalla para mostrar la imagen
+                    pygame.time.delay(9000)  # Espera 3 segundos antes de cerrar
+                    
+                    
                     pygame.quit()
                     return
             player.rect.topleft = (100, 40)  # Posición inicial del jugador
@@ -313,20 +350,24 @@ def handle_bullets(bullets, enemies, walls, player, object_enemies):
 
         # Verificar colisión con enemigos
         for enemy in enemies[:]:  # Hacemos una copia de la lista de enemigos para eliminar sin problemas
-            # Aquí verificamos que la bala no sea de un tanque enemigo
             if bullet.rect.colliderect(enemy.rect) and not bullet.is_enemy_bullet:
                 if bullet in bullets:
                     bullets.remove(bullet)  # Eliminar la bala
+                # Dibuja la explosión en la posición del enemigo
+                screen.blit(explosion_image, enemy.rect.topleft)
+                pygame.display.flip()  # Actualiza la pantalla para mostrar la explosión
+                pygame.time.delay(10)  # Espera medio segundo para mostrar la explosión
                 enemies.remove(enemy)  # Eliminar el enemigo
                 break
 
         # Verificar colisión con objetos enemigos
         for obj_enemy in object_enemies[:]:  # Copia de la lista para eliminar sin problemas
             if bullet.rect.colliderect(obj_enemy.rect):
-                if bullet in bullets:
-                    bullets.remove(bullet)  # Eliminar la bala
-                object_enemies.remove(obj_enemy)  # Eliminar el objeto enemigo
-                break
+                if not bullet.is_enemy_bullet:  # Solo eliminar si la bala no es enemiga
+                    if bullet in bullets:
+                        bullets.remove(bullet)  # Eliminar la bala
+                    object_enemies.remove(obj_enemy)  # Eliminar el objeto enemigo
+                    break
 
         if bullet.off_screen() and bullet in bullets:
             bullets.remove(bullet)
@@ -353,13 +394,12 @@ def generate_random_position(walls):
 
 player = Tank(100, 40, player_image)  # Tanque del jugador
 #walls = [Wall(200, 200), Wall(240, 200)]  # Lista de muros
-enemies = [EnemyTank(*generate_random_position(walls), enemy_image) for _ in range(3)]
-object_enemies = [ObjectEnemy(*generate_random_position(walls + enemies), object_enemy_image) for _ in range(5)]  # Crear 5 object_enemy
+enemies = [EnemyTank(*generate_random_position(walls), enemy_image) for _ in range(4)]
+object_enemies = [ObjectEnemy(*generate_random_position(walls + enemies), object_enemy_image) for _ in range(10)]  # Crear 5 object_enemy
 
 bullets = []  # Lista de balas
 
 # --- BUCLE PRINCIPAL ---
-
 running = True
 while running:
     keys = pygame.key.get_pressed()
@@ -379,9 +419,11 @@ while running:
                     bullet = Bullet(player.rect.left, player.rect.centery, 'LEFT')
                 elif keys[pygame.K_RIGHT]:
                     bullet = Bullet(player.rect.right, player.rect.centery, 'RIGHT')
-                bullets.append(bullet)
-
-    
+                
+                # Asegúrate de que 'bullet' esté definido antes de agregarlo
+                if 'bullet' in locals():  # Verifica si 'bullet' fue creado
+                    bullets.append(bullet)
+            
     x_change, y_change = 0, 0
 
     if keys[pygame.K_UP]:
@@ -429,16 +471,32 @@ while running:
     # Realizar el cálculo de la ruta con Haskell después de actualizar la pantalla
     for enemy in enemies:
         enemy.update(player.rect.center, walls, bullets)
+        enemy.shoot_if_needed(bullets, player.rect.center) 
 
     # Manejo de las balas y colisiones
     handle_bullets(bullets, enemies, walls, player, object_enemies)
 
     # Verificar si se han eliminado todos los object_enemy
     if len(object_enemies) == 0:
-        print("¡Has ganado!")
-        running = False  # Finalizar el juego si todos los objetos enemigos han sido eliminados
+        # Calcular la posición para centrar la imagen
+        center_x = (SCREEN_WIDTH - new_width) // 2
+        center_y = (SCREEN_HEIGHT - new_height) // 2
+
+        # Dibuja la imagen de victoria en la posición centrada
+        screen.blit(victory_image, (center_x, center_y))
+        pygame.mixer.music.stop()
+        pygame.mixer.music.load('music/victoria.mp3')  # Cargar el sonido
+        pygame.mixer.music.play() 
+
+        pygame.display.flip()  # Actualiza la pantalla para mostrar la imagen
+        pygame.time.delay(7000)  # Espera 3 segundos antes de cerrar
+        running = False  # Finalizar el juego
 
     # Controlar el FPS
     clock.tick(30)
 
+    if player.lives == 0: 
+        running = False
+
+pygame.mixer.music.stop()
 pygame.quit()
