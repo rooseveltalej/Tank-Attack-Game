@@ -192,21 +192,24 @@ class EnemyTank(Tank):
                 f.write(f"{wall.rect.x // BLOCK_SIZE} {wall.rect.y // BLOCK_SIZE} ")
 
         with open('./app/input.txt', 'r') as f:
-            print("Contenido del archivo de entrada:", f.read())
+            pass
+            #print("Contenido del archivo de entrada:", f.read())
 
         result = subprocess.run(['runhaskell', './app/Main.hs'], capture_output=True, text=True)
-        print("Resultado de Haskell:", result.stdout)
+        #print("Resultado de Haskell:", result.stdout)
         if result.returncode != 0:
-            print("Error en la ejecución de Haskell:", result.stderr)
+            pass
+            #print("Error en la ejecución de Haskell:", result.stderr)
 
         try:
             with open('./app/output.txt', 'r') as f:
                 path = f.read().strip().split()
-                print("Ruta obtenida de Haskell:", path)
+                # print("Ruta obtenida de Haskell:", path)
                 self.path = [tuple(map(int, pos.strip('()').split(','))) for pos in path]
                 self.path = [(x * BLOCK_SIZE, y * BLOCK_SIZE) for x, y in self.path]
         except FileNotFoundError:
-            print("Archivo de salida no encontrado.")
+            pass
+            # print("Archivo de salida no encontrado.")
 
     def rotate_image(self):
         if self.direction == 'UP':
